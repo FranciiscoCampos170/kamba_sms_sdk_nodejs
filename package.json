@@ -1,0 +1,28 @@
+{
+  "name": "kambasms",
+  "version": "1.0.0",
+  "description": "SDK oficial da KambaSMS para envio de mensagens em Angola",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kambasms/node-sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/kambasms/node-sdk/issues"
+  },
+  "homepage": "https://github.com/kambasms/node-sdk#readme",
+  "keywords": ["sms", "angola", "kambasms", "api", "messaging"],
+  "author": "KambaSMS <support@kambasms.ao>",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

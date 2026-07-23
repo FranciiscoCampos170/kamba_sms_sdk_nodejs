@@ -215,13 +215,13 @@ testarErros();
 
 ## 📚 Documentação Completa
 
-Para mais detalhes sobre endpoints avançados, webhooks de entrega e gestão de conta, consulta a [Documentação Oficial da KambaSMS](https://kambasms.ao/docs).
+Para mais detalhes sobre endpoints avançados, webhooks de entrega e gestão de conta, consulta a [Documentação Oficial da KambaSMS](https://www.kambasms.ao/dashboard/docs).
 
 ## 🆘 Suporte
 
 Encontraste um bug ou tens uma sugestão?
 
-- Abre uma [issue neste repositório](https://github.com/kambasms/node-sdk/issues).
+- Abre uma [issue neste repositório](https://github.com/FranciiscoCampos170/kamba_sms_sdk_nodejs/issues).
 - Contacta a nossa equipa através do [support@kambasms.ao](mailto:support@kambasms.ao).
 
 ## 📄 Licença

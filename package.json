@@ -6,12 +6,12 @@
   "types": "dist/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kambasms/node-sdk.git"
+    "url": "git+https://github.com/FranciiscoCampos170/kamba_sms_sdk_nodejs.git"
   },
   "bugs": {
-    "url": "https://github.com/kambasms/node-sdk/issues"
+    "url": "https://github.com/FranciiscoCampos170/kamba_sms_sdk_nodejs/issues"
   },
-  "homepage": "https://github.com/kambasms/node-sdk#readme",
+  "homepage": "https://github.com/FranciiscoCampos170/kamba_sms_sdk_nodejs#readme",
   "keywords": [
     "sms",
     "angola",

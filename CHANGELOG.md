@@ -2,6 +2,8 @@
 
 ## 2.0.0
 
+- Simplifica o README com guia de utilização e exemplos dos métodos públicos.
+
 - Alinha contratos de SMS, OTP, saldo e histórico com o backend modular atual.
 - Adiciona Verify, Lookup, estatísticas, consumo, consulta de bulk e cancelamento de agendamentos.
 - Suporta fallback Telegram, idempotência, request ID, timeout e cancelamento.

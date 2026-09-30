@@ -1,52 +1,66 @@
 # KambaSMS Node.js SDK
 
-SDK TypeScript/JavaScript para os endpoints de SMS, OTP, Verify, Lookup e conta do backend KambaSMS. Versão 2.0.0, sem dependências de execução, para Node.js 18 ou superior.
+Envia SMS, agenda mensagens, verifica códigos e consulta a tua conta KambaSMS com JavaScript ou TypeScript.
 
-## Instalação e configuração
+Requer Node.js 18 ou superior.
 
-```sh
+## Instalação
+
+```bash
 npm install kambasms
 ```
 
+## Configuração
+
 ```js
 const { KambaSMS } = require('kambasms');
-// TypeScript / ESM: import { KambaSMS } from 'kambasms';
 
 const client = new KambaSMS({
   apiKey: process.env.KAMBA_API_KEY,
-  baseUrl: 'https://api.kambasms.ao', // padrão; local: http://localhost:3001
-  timeoutMs: 30000,
 });
 ```
 
-A chave é enviada em `x-api-key`. Os exemplos com `await` devem ser executados numa função `async` ou num módulo ESM. A versão deste repositório precisa ser publicada para estar disponível no npm.
+Em TypeScript ou ES Modules, usa:
 
-## Envio de SMS
+```ts
+import { KambaSMS } from 'kambasms';
+
+const client = new KambaSMS({
+  apiKey: process.env.KAMBA_API_KEY!,
+});
+```
+
+Define `KAMBA_API_KEY` com a tua chave KambaSMS. Podes configurar também `timeoutMs` (padrão: `30000`) e `baseUrl` (padrão: `https://api.kambasms.ao`).
+
+Os exemplos seguintes usam o mesmo `client`. Executa as chamadas com `await` dentro de uma função `async` ou de um módulo que suporte `await` no nível superior.
+
+## Enviar um SMS
 
 ```js
 const response = await client.sms.send({
   to: '+244923456789',
   text: 'O seu pedido foi recebido.',
-  senderId: 'KAMBA',
-  // telegramFallback: true,
-  // telegramChatId: '123456789',
-}, {
-  idempotencyKey: 'pedido:123:sms',
+  senderId: 'KAMBA', // opcional quando associado à chave
 });
 
 if (response.success) {
-  console.log(response.message_id, response.channel, response.remaining_balance);
+  console.log('Mensagem:', response.message_id);
+  console.log('Estado:', response.status);
+  console.log('Saldo:', response.remaining_balance);
 } else {
-  // HTTP 202: fornecedor aceitou, mas a operação ficou pendente de reconciliação.
-  console.log(response.message_id, response.reservation_id, response.error);
+  console.log('Operação pendente:', response.message_id, response.error);
 }
 ```
 
-O Sender ID associado à chave tem prioridade sobre `senderId` no envio simples e OTP. O fallback Telegram é tentado pelo backend quando o SMS falha; exige `telegramChatId`.
+O nome de remetente associado à chave tem prioridade sobre `senderId` no envio simples e OTP.
 
-As validações locais seguem o backend: número `+244` com nove dígitos, texto não vazio com até 160 caracteres, sem os padrões de URL e emoji rejeitados pela API. Bulk, agendamento e Verify validam Sender IDs com 3–11 letras, números ou espaços.
+Regras para mensagens:
 
-## Envio em massa e agendamentos
+- Número no formato `+244` seguido de nove dígitos.
+- Texto não vazio, até 160 caracteres, sem links ou emojis.
+- Nos métodos que exigem `senderId`, usa 3–11 letras, números ou espaços.
+
+## Enviar SMS em massa
 
 ```js
 const job = await client.sms.sendBulk({
@@ -54,118 +68,296 @@ const job = await client.sms.sendBulk({
   senderId: 'KAMBA',
   text: 'A sua encomenda esta pronta.',
   recipients: ['+244923456789', '+244933123456'],
-}, { idempotencyKey: 'campanha:123' });
+});
 
-console.log(await client.sms.getBulk(job.job_id));
-console.log(await client.sms.listBulk());
+console.log('Envio:', job.job_id);
+console.log('Destinatários:', job.total);
+```
 
+Consulta um envio ou lista os envios em massa:
+
+```js
+const details = await client.sms.getBulk(job.job_id);
+console.log(details.status, details.sent, details.failed);
+console.log(details.recipients);
+
+const jobs = await client.sms.listBulk();
+console.log(jobs);
+```
+
+O limite de destinatários depende da conta. Números repetidos são considerados uma única vez. O envio exige saldo disponível e primeiro pagamento concluído.
+
+## Agendar um SMS
+
+```js
 const result = await client.sms.schedule({
   to: '+244923456789',
   text: 'Lembrete da sua consulta.',
   senderId: 'CLINICA',
-  scheduledAt: new Date(Date.now() + 3600000),
+  scheduledAt: new Date(Date.now() + 60 * 60 * 1000), // daqui a uma hora
 });
-console.log(await client.sms.listScheduled());
+
+console.log('Agendamento:', result.scheduled.id);
+```
+
+`scheduledAt` aceita um objecto `Date` ou uma string ISO com uma data futura. O agendamento exige saldo disponível e primeiro pagamento concluído.
+
+Lista ou cancela agendamentos:
+
+```js
+const scheduled = await client.sms.listScheduled();
+console.log(scheduled);
+
 await client.sms.cancelScheduled(result.scheduled.id);
 ```
 
-O limite de destinatários é definido pela conta no backend. Consulte `account.getUsage().messaging_limits.bulk_recipient_limit`. O SDK valida todos os números; o backend elimina duplicados. Bulk e agendamento estão sujeitos ao primeiro pagamento, saldo e limites da conta. Só agendamentos pendentes podem ser cancelados.
+Só é possível cancelar agendamentos pendentes.
 
-## Conta
+## Consultar a conta
+
+### Saldo
 
 ```js
-const balance = await client.account.getBalance();
-console.log(balance.balance); // null na sandbox, com unlimited: true
-const history = await client.account.getHistory({ limit: 10, page: 1 });
-const stats = await client.account.getStats(); // estatísticas dos últimos sete dias
-const usage = await client.account.getUsage();
-console.log(usage.messaging_limits);
+const result = await client.account.getBalance();
+console.log('Saldo:', result.balance);
 ```
 
-`GET /messages` devolve até 100 mensagens. `limit` e `page` selecionam localmente uma parte desses registos; não permitem consultar histórico anterior aos últimos 100. Na sandbox, o identificador do fornecedor aparece em `message_id`; em produção, em `twilio_sid`.
-
-## OTP e Verify
+### Histórico de mensagens
 
 ```js
-await client.otp.send({ phone: '+244923456789', senderId: 'KAMBA' });
-await client.otp.verify({ phone: '+244923456789', code: '123456' });
+const messages = await client.account.getHistory({ limit: 10, page: 1 });
 
+for (const message of messages) {
+  console.log(message.id, message.to, message.status, message.created_at);
+}
+```
+
+O histórico disponibiliza as últimas 100 mensagens. `limit` (1–100) e `page` selecionam uma parte dessa lista; não permitem consultar mensagens anteriores a esses 100 registos.
+
+### Estatísticas
+
+```js
+const stats = await client.account.getStats();
+
+for (const day of stats) {
+  console.log(day.date, day.count);
+}
+```
+
+Devolve a contagem de mensagens dos últimos sete dias.
+
+### Consumo e limites
+
+```js
+const usage = await client.account.getUsage();
+console.log('Mensagens:', usage.messages);
+console.log('Limites:', usage.messaging_limits);
+console.log('Máximo por envio em massa:', usage.messaging_limits.bulk_recipient_limit);
+```
+
+## Enviar e verificar um OTP
+
+Envia um código para o telefone:
+
+```js
+const response = await client.otp.send({
+  phone: '+244923456789',
+  senderId: 'KAMBA', // opcional
+});
+
+if (response.success) {
+  console.log('Validade em segundos:', response.expires_in);
+} else {
+  console.log('Operação pendente:', response.error);
+}
+```
+
+Quando o utilizador introduzir o código recebido, verifica-o:
+
+```js
+const result = await client.otp.verify({
+  phone: '+244923456789',
+  code: '123456', // substitui pelo código introduzido pelo utilizador
+});
+
+console.log(result.success, result.message);
+```
+
+## Verificações com Verify
+
+Usa Verify para acompanhar cada verificação por um identificador, consultar eventos e obter métricas.
+
+### Iniciar
+
+```js
 const session = await client.verify.start({
   phone: '+244923456789',
-  senderId: 'KAMBA',
-  locale: 'pt-AO',
-  metadata: { orderId: '123' },
-}, { idempotencyKey: 'verify:pedido:123' });
+  senderId: 'KAMBA', // opcional
+  metadata: { orderId: '123' }, // opcional
+});
 
 if (session.success) {
-  await client.verify.check({ verificationId: session.verification_id, code: '123456' });
-  console.log(await client.verify.get(session.verification_id));
+  console.log('Guarda este identificador:', session.verification_id);
+  console.log('Validade em segundos:', session.expires_in);
+} else {
+  console.log('Operação pendente:', session.verification_id, session.error);
 }
-
-console.log(await client.verify.list());
-console.log(await client.verify.events());
-console.log(await client.verify.stats({ days: 30, environment: 'live' }));
-// Para uma sessão ainda pendente, respeitando o intervalo do servidor:
-// await client.verify.resend(verificationId, { idempotencyKey: 'verify:resend:123' });
 ```
 
-O OTP legado verifica por telefone e código. Verify usa sessões autenticadas com `verificationId`, eventos e métricas. Verify depende de `FEATURE_VERIFY` no backend. Na sandbox, o código de teste é `123456`; use Verify para iniciar e verificar sessões de teste, pois `/otp/verify` consulta apenas os OTPs reais.
+Nos exemplos seguintes, substitui `'ID_DA_VERIFICACAO'` pelo identificador devolvido ao iniciar a sessão.
 
-## Lookup
+### Confirmar um código
 
 ```js
-console.log(await client.lookup.lookup('923 456 789'));
-console.log(await client.lookup.bulk(['923456789', '+244923456789']));
+const result = await client.verify.check({
+  verificationId: 'ID_DA_VERIFICACAO',
+  code: '123456', // código introduzido pelo utilizador
+});
+
+console.log(result.status, result.verified_at);
 ```
 
-Lookup aceita formatos locais, devolve a normalização, validade e provável operadora pelo prefixo. Não confirma a operadora em tempo real. Máximo de 500 números por consulta em massa; depende de `FEATURE_LOOKUP`.
+### Reenviar um código
 
-## Pedidos, erros e sandbox
+```js
+const response = await client.verify.resend('ID_DA_VERIFICACAO');
 
-Todos os métodos aceitam opções no último argumento: `signal`, `requestId` e `idempotencyKey`. A idempotência é aplicada pelo backend em SMS, bulk, agendamento, OTP send, Verify start e Verify resend. Use a mesma chave e o mesmo conteúdo para repetir a mesma operação; a retenção configurada pelo backend é de 24 horas. As chaves aceitam 8–200 caracteres (`A-Z`, `a-z`, dígitos, `.`, `_`, `:`, `-`); `requestId` aceita 8–100.
+if (response.success) {
+  console.log('Código reenviado. Validade:', response.expires_in);
+} else {
+  console.log('Operação pendente:', response.error);
+}
+```
 
-Não há repetição automática de pedidos. Um timeout não confirma se o fornecedor enviou a mensagem. Respostas HTTP 202 com reconciliação pendente são devolvidas como `PendingResponse`, sem lançar erro nem reenviar.
+A sessão deve estar pendente. Aguarda pelo menos 60 segundos entre envios; são permitidos até dois reenvios.
+
+### Consultar sessões e eventos
+
+```js
+const session = await client.verify.get('ID_DA_VERIFICACAO');
+console.log(session.status, session.attempts);
+
+const sessions = await client.verify.list();
+console.log(sessions);
+
+const events = await client.verify.events('ID_DA_VERIFICACAO');
+console.log(events);
+
+// Eventos de todas as verificações:
+const allEvents = await client.verify.events();
+```
+
+### Consultar métricas
+
+```js
+const stats = await client.verify.stats({
+  days: 30, // entre 1 e 90
+  environment: 'live', // 'live', 'test' ou 'all'
+});
+
+console.log(stats.total, stats.verified, stats.conversion_rate);
+```
+
+## Consultar números com Lookup
+
+### Um número
+
+```js
+const result = await client.lookup.lookup('923 456 789');
+console.log(result.valid, result.normalized, result.likely_operator);
+```
+
+### Vários números
+
+```js
+const result = await client.lookup.bulk(['923456789', '+244923456789']);
+console.log(result.summary);
+console.log(result.results);
+```
+
+Lookup aceita formatos locais e internacionais e até 500 números por consulta em massa. A operadora indicada é uma estimativa pelo prefixo, não uma confirmação em tempo real.
+
+## Ambiente de testes
+
+Usa uma chave de teste para simular operações. Nesse ambiente, o saldo é `null` e as respostas podem incluir `environment: 'test'`, `simulated` e `test_code`.
+
+Para testar um fluxo completo de verificação, usa Verify:
+
+```js
+const testClient = new KambaSMS({ apiKey: process.env.KAMBA_TEST_API_KEY });
+const session = await testClient.verify.start({ phone: '+244923456789' });
+
+if (session.success && session.test_code) {
+  const result = await testClient.verify.check({
+    verificationId: session.verification_id,
+    code: session.test_code,
+  });
+  console.log(result.status);
+}
+```
+
+`otp.verify()` destina-se aos códigos enviados em produção. Usa `verify.check()` para confirmar os códigos das sessões de teste.
+
+## Evitar operações duplicadas
+
+Passa `idempotencyKey` no segundo argumento ao enviar SMS, enviar em massa, agendar, enviar OTP, iniciar Verify ou reenviar um código Verify:
+
+```js
+const response = await client.sms.send({
+  to: '+244923456789',
+  text: 'O seu pedido foi recebido.',
+}, {
+  idempotencyKey: 'pedido:123:sms',
+});
+```
+
+Para repetir a mesma operação, reutiliza a chave e o mesmo conteúdo durante a janela de 24 horas. Para uma nova operação, usa outra chave. A chave deve ter 8–200 caracteres: letras, números, `.`, `_`, `:` ou `-`.
+
+O SDK não repete pedidos automaticamente. Uma operação pendente ou um timeout não significa que a mensagem deixou de ser enviada.
+
+## Cancelar um pedido
+
+Os métodos aceitam `signal` nas opções do último argumento. Para métodos sem parâmetros, as opções são o primeiro argumento:
+
+```js
+const controller = new AbortController();
+const request = client.account.getBalance({ signal: controller.signal });
+controller.abort();
+
+try {
+  await request;
+} catch (error) {
+  console.log(error.message);
+}
+```
+
+Também podes passar `requestId` para identificar um pedido, com 8–100 caracteres no mesmo formato da chave de idempotência.
+
+## Tratar erros
 
 ```js
 const { KambaAPIError, KambaValidationError } = require('kambasms');
 
 try {
-  await client.account.getBalance();
+  await client.sms.send({
+    to: '+244923456789',
+    text: 'Ola!',
+  });
 } catch (error) {
   if (error instanceof KambaValidationError) {
-    console.error(error.message); // dados rejeitados localmente
+    console.error('Dados inválidos:', error.message);
   } else if (error instanceof KambaAPIError) {
-    console.error(error.statusCode, error.code, error.requestId, error.retryAfter);
-    console.error(error.details);
+    console.error('Erro:', error.message);
+    console.error('Estado HTTP:', error.statusCode);
+    console.error('Código:', error.code);
+    console.error('Identificador do pedido:', error.requestId);
+    console.error('Tempo de espera:', error.retryAfter);
   } else {
     throw error;
   }
 }
 ```
 
-`statusCode` é o código HTTP, ou `0` para falhas de rede, timeout ou cancelamento. Erros HTTP não JSON preservam o estado HTTP e o texto em `details`. `retryAfter` contém o cabeçalho `Retry-After`, quando presente; campos como `retry_after` no JSON continuam disponíveis em `details`.
+`KambaValidationError` indica dados rejeitados antes do pedido. `KambaAPIError` contém o estado HTTP e os detalhes da resposta em `details`; o estado `0` indica falha de rede, timeout ou cancelamento.
 
-A sandbox é determinada pela chave da API. Campos como `simulated`, `charged_credits`, `test_code` e `environment` são preservados. Saldo, segmentos e canal podem estar ausentes nas respostas simuladas.
-
-## Migração de 1.x para 2.0
-
-- URL padrão atualizada de `https://nexasms-api.onrender.com` para `https://api.kambasms.ao`, conforme a documentação do backend. Use `baseUrl` para outro deployment.
-- `SendSmsResponse`, `OtpSendResponse` e `VerifyStartResponse` incluem operações pendentes; verifique `response.success` antes de usar os campos de sucesso.
-- `BalanceResponse.balance` aceita `null` na sandbox; campos exclusivos de produção tornaram-se opcionais.
-- Histórico aplica paginação local; a API não implementa paginação remota.
-- Removido o limite fixo de 1000 destinatários. O backend decide conforme a conta.
-- Falhas de rede usam `statusCode: 0`; `KambaAPIError.details` passa a `unknown` e deve ser verificado antes de aceder às propriedades.
-- Pedidos têm timeout padrão de 30 segundos e não seguem redirecionamentos HTTP.
-
-Os nomes existentes `sms.send`, `sms.sendBulk`, `sms.schedule`, `account.getBalance`, `account.getHistory`, `otp.send` e `otp.verify` foram mantidos. Esta versão cobre as integrações de SMS e verificação descritas acima; não oferece recursos dedicados para Email, Chat, Notify ou administração.
-
-## Desenvolvimento
-
-```sh
-npm ci
-npm test
-npm run typecheck
-npm pack --dry-run
-```
-
-Os testes usam respostas HTTP simuladas, sem consumir créditos. Os contratos foram comparados com `ABMS-startup-API-JS/src/modules` e os middlewares locais. Não substituem um teste de integração num deployment configurado.
+Respostas de operações pendentes são devolvidas normalmente, sem lançar erro. Nos métodos de envio de SMS, OTP e Verify, verifica `response.success` antes de usar os campos de sucesso, como nos exemplos acima.

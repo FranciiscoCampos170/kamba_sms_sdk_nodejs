@@ -1,7 +1,7 @@
 import { KambaValidationError } from './errors';
 
 export function validateAngolanPhone(phone: string): void {
-  if (!/^\+244[0-9]{9}$/.test(phone)) {
+  if (typeof phone !== 'string' || !/^\+244[0-9]{9}$/.test(phone)) {
     throw new KambaValidationError(
       `Número de telefone inválido: '${phone}'. Deve ser +244 seguido de 9 dígitos (ex: +244923456789).`
     );
@@ -9,6 +9,7 @@ export function validateAngolanPhone(phone: string): void {
 }
 
 export function validateMessageContent(text: string): void {
+  requireText(text, 'text');
   const urlRegex = /https?:\/\/|www\.|\.com\b|\.ao\b|\.net\b|\.org\b|\.co\b|\.io\b/gi;
   if (urlRegex.test(text)) {
     throw new KambaValidationError(
@@ -28,4 +29,23 @@ export function validateMessageContent(text: string): void {
       'Emojis não são suportados. As operadoras angolanas podem bloquear ou cobrar múltiplos SMS por mensagens com emojis.'
     );
   }
+}
+export function requireText(value: string, field: string): void {
+  if (typeof value !== 'string' || !value.trim()) throw new KambaValidationError(`${field} é obrigatório.`);
+}
+export function validateSenderId(value: string): void {
+  if (typeof value !== 'string' || !/^[a-zA-Z0-9 ]{3,11}$/.test(value)) {
+    throw new KambaValidationError('Sender ID deve conter 3-11 letras, números ou espaços.');
+  }
+}
+export function validateCode(code: string): void {
+  if (typeof code !== 'string' || !/^\d{6}$/.test(code)) throw new KambaValidationError('Código deve ter 6 dígitos.');
+}
+export function telegramPayload(params: { telegramFallback?: boolean; telegramChatId?: string }) {
+  if (params.telegramFallback) requireText(params.telegramChatId as string, 'telegramChatId');
+  return { telegram_fallback: params.telegramFallback, telegram_chat_id: params.telegramChatId };
+}
+export function resourceId(id: string): string {
+  requireText(id, 'id');
+  return encodeURIComponent(id);
 }

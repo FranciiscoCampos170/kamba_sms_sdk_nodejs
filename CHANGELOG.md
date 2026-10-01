@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.0
+
+- Adiciona os recursos públicos `notify`, `email` e `transactions`.
+- Inclui templates Notify, renderização, entregas e envio idempotente.
+- Inclui domínios Email, envio unitário, templates, Sandbox e bulk.
+- Inclui templates e eventos multicanal do Kamba Transactions.
+- Adiciona tipos TypeScript, validação local, testes de contratos HTTP e exemplos no README.
+
 ## 2.0.0
 
 - Simplifica o README com guia de utilização e exemplos dos métodos públicos.

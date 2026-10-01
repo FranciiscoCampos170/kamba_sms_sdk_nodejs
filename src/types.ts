@@ -107,3 +107,91 @@ export interface UsageOverview {
   sandbox: { usage_date: string; simulations: UsageLimit; verifications: UsageLimit; rotations: UsageLimit; retention_days: number };
 }
 export interface UsageLimit { used: number; limit: number }
+
+export type JsonObject = Record<string, unknown>;
+
+export interface NotifyTemplateParams { key: string; name: string; body: string }
+export interface NotifyTemplate {
+  id: string; template_key: string; name: string; body: string; active: boolean;
+  variables: string[]; created_at: string; updated_at?: string;
+}
+export interface NotifyRenderParams { templateKey: string; variables?: JsonObject }
+export interface NotifyRenderResponse { text: string; segments: number }
+export interface NotifySendParams extends NotifyRenderParams { to: string; senderId?: string }
+export interface NotifySendResponse extends SandboxFields {
+  success: boolean; message_id: string; status: string; text?: string;
+  remaining_balance?: number; environment?: 'live' | 'test';
+}
+export interface NotifyDelivery {
+  id: string; channel: string; destination: string; status: string;
+  environment: 'live' | 'test'; created_at: string;
+  notification_templates?: { name: string; template_key: string } | null;
+}
+
+export type EmailDomainStatus = 'pending' | 'verified' | 'failed';
+export interface EmailDomain {
+  id: string; domain: string; status: EmailDomainStatus; dns_records?: unknown;
+  last_checked_at?: string | null; created_at: string;
+}
+export interface EmailSubscription {
+  plan_name: string; monthly_limit: number; used_count: number; daily_limit?: number;
+  max_concurrent_jobs?: number; status: string; period_start?: string; period_end?: string;
+  [key: string]: unknown;
+}
+export interface EmailMessage {
+  id: string; environment: 'production' | 'test'; from_address: string; to_address: string;
+  subject: string; status: string; error_message?: string | null; created_at: string;
+}
+export interface EmailTemplate {
+  id: string; key: string; name: string; subject: string; html_body?: string | null;
+  text_body?: string | null; variables: string[]; active: boolean; created_at: string; updated_at: string;
+}
+export interface EmailBulkJob {
+  id: string; name: string; status: string; total_count: number; sent_count?: number;
+  failed_count?: number; suppressed_count?: number; created_at?: string; completed_at?: string | null;
+  [key: string]: unknown;
+}
+export interface EmailOverview {
+  subscription: EmailSubscription; domains: EmailDomain[]; messages: EmailMessage[];
+  suppressions: { id: string; email: string; reason: string; created_at: string }[];
+  templates: EmailTemplate[]; bulk_jobs: EmailBulkJob[];
+}
+export interface EmailSendParams {
+  to: string; domainId: string; fromLocal: string; subject: string; fromName?: string;
+  html?: string; text?: string; replyTo?: string;
+}
+export interface EmailSendResponse { success: boolean; replayed?: boolean; message_id: string; status: string; remaining?: string }
+export interface EmailTemplateParams { key: string; name: string; subject: string; html?: string; text?: string }
+export interface EmailTemplateUpdateParams extends Partial<EmailTemplateParams> { active?: boolean }
+export interface EmailRenderResponse { subject: string; html: string | null; text: string | null; variables: string[] }
+export interface EmailBulkRecipient { email: string; variables?: JsonObject }
+export interface EmailBulkParams {
+  domainId: string; fromLocal: string; recipients: EmailBulkRecipient[]; name?: string;
+  fromName?: string; replyTo?: string; templateId?: string; subject?: string; html?: string; text?: string;
+}
+export interface EmailBulkResponse { success: boolean; replayed?: boolean; job: EmailBulkJob }
+
+export type TransactionChannel = 'sms' | 'email';
+export interface TransactionTemplateParams {
+  key: string; eventType: string; name: string; channels: TransactionChannel[];
+  smsBody?: string; emailSubject?: string; emailHtml?: string; domainId?: string; fromLocal?: string;
+}
+export interface TransactionTemplate {
+  id: string; template_key: string; event_type: string; name: string; channels: TransactionChannel[];
+  sms_body?: string | null; email_subject?: string | null; email_html?: string | null;
+  email_domain_id?: string | null; email_from_local?: string | null; active: boolean; variables: string[];
+  created_at: string; updated_at?: string;
+}
+export interface TransactionEventParams {
+  event: string; templateKey: string; externalReference: string; environment?: 'test' | 'production';
+  customer: { phone?: string; email?: string }; data?: JsonObject; channels?: TransactionChannel[];
+}
+export interface TransactionDelivery { channel: TransactionChannel; status: string; message_id?: string; simulated?: boolean; error?: string }
+export interface TransactionEventResponse {
+  id: string; event_type: string; external_reference: string; environment: 'test' | 'production';
+  created_at: string; status: 'completed' | 'partial' | 'failed'; deliveries: TransactionDelivery[];
+}
+export interface TransactionsOverview {
+  templates: TransactionTemplate[]; events: JsonObject[];
+  metrics: { events: number; failed_deliveries: number };
+}

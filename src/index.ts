@@ -6,6 +6,9 @@ import { SmsResource } from './resources/SmsResource';
 import { AccountResource } from './resources/AccountResource';
 import { KambaError, KambaValidationError, KambaAPIError } from './errors';
 import { OtpResource } from './resources/OtpResource';
+import { NotifyResource } from './resources/NotifyResource';
+import { EmailResource } from './resources/EmailResource';
+import { TransactionsResource } from './resources/TransactionsResource';
 
 export class KambaSMS extends KambaClient {
   public readonly sms: SmsResource;
@@ -14,6 +17,9 @@ export class KambaSMS extends KambaClient {
 
   public readonly verify: VerifyResource;
   public readonly lookup: LookupResource;
+  public readonly notify: NotifyResource;
+  public readonly email: EmailResource;
+  public readonly transactions: TransactionsResource;
 
   constructor(options: KambaSMSOptions) {
     super(options);
@@ -22,6 +28,9 @@ export class KambaSMS extends KambaClient {
     this.otp = new OtpResource(this);
     this.verify = new VerifyResource(this);
     this.lookup = new LookupResource(this);
+    this.notify = new NotifyResource(this);
+    this.email = new EmailResource(this);
+    this.transactions = new TransactionsResource(this);
   }
 }
 

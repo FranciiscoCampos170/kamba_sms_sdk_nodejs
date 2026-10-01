@@ -1,7 +1,7 @@
 {
   "name": "kambasms",
-  "version": "2.0.0",
-  "description": "SDK oficial da KambaSMS para envio de mensagens em Angola",
+  "version": "2.1.0",
+  "description": "SDK oficial da KambaSMS para SMS, OTP, Email, Notify e Transactions",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "repository": {

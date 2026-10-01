@@ -159,3 +159,47 @@ test('account stats and usage endpoints', async () => {
   await client().account.getUsage();
   assert.deepEqual(calls.map(c => new URL(c.url).pathname), ['/messages/stats', '/usage/overview']);
 });
+
+test('Notify maps templates, rendering, sending and deliveries', async () => {
+  const calls = mock({ success: true }); const sdk = client();
+  await sdk.notify.createTemplate({ key: 'payment_due', name: 'Pagamento', body: 'Olá {{name}}' });
+  await sdk.notify.listTemplates();
+  await sdk.notify.render({ templateKey: 'payment_due', variables: { name: 'Ana' } });
+  await sdk.notify.send({ to: '+244923456789', templateKey: 'payment_due', variables: { name: 'Ana' }, senderId: 'KAMBA' }, { idempotencyKey: 'notify:123' });
+  await sdk.notify.listDeliveries(); await sdk.notify.disableTemplate('template/1');
+  assert.deepEqual(calls.map(c => new URL(c.url).pathname), ['/notify/templates', '/notify/templates', '/notify/render', '/notify/send', '/notify/deliveries', '/notify/templates/template%2F1']);
+  assert.deepEqual(calls[3].body, { to: '+244923456789', template_key: 'payment_due', variables: { name: 'Ana' }, sender_id: 'KAMBA' });
+  assert.equal(calls[3].headers.get('Idempotency-Key'), 'notify:123');
+});
+
+test('Email maps domains, unit sending, templates and bulk', async () => {
+  const calls = mock({ success: true }); const sdk = client();
+  await sdk.email.overview(); await sdk.email.createDomain('Example.AO'); await sdk.email.verifyDomain('domain-1');
+  await sdk.email.send({ to: 'ana@example.com', domainId: 'domain-1', fromLocal: 'alertas', subject: 'Confirmação', text: 'Pedido recebido.' }, { idempotencyKey: 'email:123' });
+  await sdk.email.createTemplate({ key: 'receipt', name: 'Recibo', subject: 'Recibo {{id}}', html: '<p>{{id}}</p>' });
+  await sdk.email.renderTemplate('template-1', { id: 123 });
+  await sdk.email.sendBulk({ domainId: 'domain-1', fromLocal: 'alertas', templateId: 'template-1', recipients: [{ email: 'ana@example.com', variables: { id: 123 } }] }, { idempotencyKey: 'bulkmail:123' });
+  await sdk.email.getBulk('job-1'); await sdk.email.cancelBulk('job-1');
+  assert.deepEqual(calls.map(c => new URL(c.url).pathname), ['/email/overview', '/email/domains', '/email/domains/domain-1/verify', '/email/send', '/email/templates', '/email/templates/template-1/render', '/email/bulk', '/email/bulk/job-1', '/email/bulk/job-1/cancel']);
+  assert.equal(calls[1].body.domain, 'example.ao'); assert.equal(calls[3].body.from_local, 'alertas');
+  assert.equal(calls[6].body.template_id, 'template-1');
+});
+
+test('Transactions maps templates and idempotent events', async () => {
+  const calls = mock({ status: 'completed' }); const sdk = client();
+  await sdk.transactions.overview();
+  await sdk.transactions.createTemplate({ key: 'meeting_notice', eventType: 'meeting.scheduled', name: 'Reunião', channels: ['sms', 'email'], smsBody: 'Reunião {{date}}', emailSubject: 'Reunião', emailHtml: '<p>{{date}}</p>', domainId: 'domain-1', fromLocal: 'alertas' });
+  await sdk.transactions.setTemplateActive('template-1', false);
+  await sdk.transactions.sendEvent({ event: 'meeting.scheduled', templateKey: 'meeting_notice', externalReference: 'meeting-123', customer: { phone: '+244923456789', email: 'ana@example.com' }, data: { date: '10/10' }, channels: ['sms', 'email'] }, { idempotencyKey: 'transaction:123' });
+  assert.deepEqual(calls.map(c => new URL(c.url).pathname), ['/transactions/overview', '/transactions/templates', '/transactions/templates/template-1', '/transactions/events']);
+  assert.equal(calls[1].body.event_type, 'meeting.scheduled'); assert.equal(calls[3].body.external_reference, 'meeting-123');
+});
+
+test('new resources reject invalid input before HTTP', async () => {
+  const calls = mock(); const sdk = client();
+  await assert.rejects(sdk.notify.send({ to: '923456789', templateKey: 'notice', variables: {} }), KambaValidationError);
+  await assert.rejects(sdk.email.send({ to: 'invalid', domainId: 'd', fromLocal: 'alerts', subject: 'Hello', text: 'Hi' }), KambaValidationError);
+  await assert.rejects(sdk.email.sendBulk({ domainId: 'd', fromLocal: 'alerts', subject: 'Hello', text: 'Hi', recipients: [] }), KambaValidationError);
+  await assert.rejects(sdk.transactions.createTemplate({ key: 'x', eventType: 'order.paid', name: 'Order', channels: ['sms'], smsBody: 'Paid' }), KambaValidationError);
+  assert.equal(calls.length, 0);
+});

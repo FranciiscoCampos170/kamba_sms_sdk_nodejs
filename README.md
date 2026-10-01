@@ -1,6 +1,6 @@
 # KambaSMS Node.js SDK
 
-Envia SMS, agenda mensagens, verifica códigos e consulta a tua conta KambaSMS com JavaScript ou TypeScript.
+Integra SMS, OTP, Verify, Lookup, Notify, Email e Transactions da KambaSMS com JavaScript ou TypeScript.
 
 Requer Node.js 18 ou superior.
 
@@ -277,6 +277,88 @@ console.log(result.results);
 
 Lookup aceita formatos locais e internacionais e até 500 números por consulta em massa. A operadora indicada é uma estimativa pelo prefixo, não uma confirmação em tempo real.
 
+## Notificações transacionais com Notify
+
+Cria um template uma vez e envia notificações com variáveis. A chave API precisa do scope `notify`.
+
+```js
+await client.notify.createTemplate({
+  key: 'appointment_reminder',
+  name: 'Lembrete de consulta',
+  body: 'Olá {{name}}, a sua consulta está marcada para {{date}}.',
+});
+
+const result = await client.notify.send({
+  to: '+244923456789',
+  templateKey: 'appointment_reminder',
+  variables: { name: 'Ana', date: '10/10 às 09:00' },
+}, { idempotencyKey: 'appointment:123:reminder' });
+```
+
+Também estão disponíveis `listTemplates()`, `render()`, `listDeliveries()` e `disableTemplate()`.
+
+## Email transacional
+
+O Kamba Email usa volume próprio, separado dos créditos SMS. Em produção, adiciona e verifica um domínio antes de enviar. A chave API precisa do scope `email`.
+
+```js
+const domain = await client.email.createDomain('example.ao');
+// Publica os registos DNS devolvidos e, depois, verifica:
+await client.email.verifyDomain(domain.id);
+
+await client.email.send({
+  to: 'cliente@example.com',
+  domainId: domain.id,
+  fromLocal: 'alertas',
+  fromName: 'Minha Empresa',
+  subject: 'Pedido recebido',
+  html: '<p>O pedido <strong>#123</strong> foi recebido.</p>',
+}, { idempotencyKey: 'order:123:email' });
+```
+
+O recurso `email` inclui gestão de domínios e templates, renderização, envio unitário, Sandbox e bulk de até 500 destinatários por pedido. Os limites efetivos dependem do plano da conta.
+
+```js
+const template = await client.email.createTemplate({
+  key: 'receipt', name: 'Recibo', subject: 'Recibo {{id}}', html: '<p>Recibo {{id}}</p>',
+});
+
+const job = await client.email.sendBulk({
+  domainId: domain.id,
+  fromLocal: 'financeiro',
+  templateId: template.id,
+  recipients: [
+    { email: 'ana@example.com', variables: { id: 'FT-123' } },
+  ],
+}, { idempotencyKey: 'receipts:2026-10-01' });
+```
+
+## Eventos com Kamba Transactions
+
+Transactions recebe um evento do teu sistema e entrega a comunicação pelos canais definidos no template. Não processa pagamentos, cartões nem dinheiro. A chave API precisa do scope `transactions`.
+
+```js
+await client.transactions.createTemplate({
+  key: 'meeting_notice',
+  eventType: 'meeting.scheduled',
+  name: 'Reunião agendada',
+  channels: ['sms'],
+  smsBody: 'A sua reunião foi agendada para {{date}}.',
+});
+
+const event = await client.transactions.sendEvent({
+  event: 'meeting.scheduled',
+  templateKey: 'meeting_notice',
+  externalReference: 'meeting-123',
+  customer: { phone: '+244923456789' },
+  data: { date: '10/10 às 09:00' },
+}, { idempotencyKey: 'meeting:123' });
+
+console.log(event.status, event.deliveries);
+```
+
+Um template também pode usar `channels: ['sms', 'email']`; nesse caso informa o domínio verificado, o remetente e os dados do destinatário para ambos os canais.
+
 ## Ambiente de testes
 
 Usa uma chave de teste para simular operações. Nesse ambiente, o saldo é `null` e as respostas podem incluir `environment: 'test'`, `simulated` e `test_code`.
@@ -300,7 +382,7 @@ if (session.success && session.test_code) {
 
 ## Evitar operações duplicadas
 
-Passa `idempotencyKey` no segundo argumento ao enviar SMS, enviar em massa, agendar, enviar OTP, iniciar Verify ou reenviar um código Verify:
+Passa `idempotencyKey` no segundo argumento ao enviar SMS, email, Notify, Transactions, enviar em massa, agendar, enviar OTP, iniciar Verify ou reenviar um código Verify:
 
 ```js
 const response = await client.sms.send({

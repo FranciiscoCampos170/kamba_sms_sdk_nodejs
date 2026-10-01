@@ -49,3 +49,18 @@ export function resourceId(id: string): string {
   requireText(id, 'id');
   return encodeURIComponent(id);
 }
+export function requireObject(value: unknown, field: string): asserts value is Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new KambaValidationError(`${field} deve ser um objecto JSON.`);
+  }
+}
+export function validateEmail(value: string, field = 'email'): void {
+  if (typeof value !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    throw new KambaValidationError(`${field} inválido.`);
+  }
+}
+export function validateKey(value: string, field: string, max = 80): void {
+  if (typeof value !== 'string' || !new RegExp(`^[a-z][a-z0-9_.-]{2,${max - 1}}$`).test(value)) {
+    throw new KambaValidationError(`${field} deve começar por uma letra minúscula e conter 3-${max} letras, números, ponto, hífen ou underscore.`);
+  }
+}
